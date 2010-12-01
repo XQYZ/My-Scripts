@@ -1,0 +1,2 @@
+#!/bin/bash
+getmail -r /home/patrick/.getmail/getmail.xqyzii.gmail -r /home/patrick/.getmail/getmail.paddylerner.gmail -r /home/patrick/.getmail/getmail.i.domindthegap

@@ -273,8 +273,6 @@ def main():
 		mutual += 1
 	if options.clean:
 		mutual += 1
-	if options.list:
-		mutual += 1
 	if options.detail != -1:
 		mutual += 1
 	if options.fixer:

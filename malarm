@@ -1,0 +1,5 @@
+#!/bin/bash
+mpc clear
+mpc random on
+mpc search any "" | mpc add
+mpc play
