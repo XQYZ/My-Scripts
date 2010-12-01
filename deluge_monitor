@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# This script monitors if my dad's computer is online
+# if it is, then stop torrent downloads (as he's always complaining about slow rates)
+# if he's off, go nuts with downloading
+
 HOST="192.168.178.20"
 ping -c1 ${HOST} -q 2>&1 >/dev/null
 RET=$?
