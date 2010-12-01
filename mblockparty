@@ -1,0 +1,34 @@
+#!/bin/bash
+function rartist()
+{
+        artist="`mpc search any "" | awk -F/ '{print $1}' | uniq | sort -R | tail -n 1`"
+        count=`mpc search artist "${artist}" | wc -l`
+        if [ "$count" -gt "$1" ] ; then
+                if [ "`mpc --format "%file%" playlist | awk -F/ '{print $1}' | uniq | grep -xic "${artist}"`" == "0" ] ; then
+                        # 3 random songs now...
+                        mpc search artist "$artist" | sort -R | tail -n $1 | mpc -q add
+                        echo "Added songs by: ${artist}"
+                else
+                        rartist $1
+                fi
+        else
+                rartist $1
+        fi
+}
+ 
+mpc -q clear
+mpc -q random off
+c="$1"
+d="$2"
+if [ "$c" == "" ] ; then
+        c="10"
+fi
+if [ "$d" == "" ] ; then
+        d="3"
+fi
+ 
+for i in $(seq 1 $c)
+do
+        rartist $d
+done
+mpc -q play 1

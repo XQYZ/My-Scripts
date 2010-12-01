@@ -1,0 +1,313 @@
+#!/bin/env python
+
+# Copyright 2010 by Patrick Lerner [xqyzii@gmail.com]
+# Distributed under the terms of the GNU General Public License v3
+
+import os
+import sys
+import commands
+from time import localtime, strftime, strptime
+import datetime
+from optparse import OptionGroup, OptionParser
+# the output lib I'm using is not a standard lib
+# it is, however, the one portage uses on Gentoo Linux, so
+# if you are on Gentoo (like I am) you can just use
+from portage import output
+# otherwise use the version I provided, which might or might
+# not work on a non-Gentoo System (frankly I don't care
+# enough to check or more precise I don't have a non-Gentoo
+# System at-hand).
+# uncommend this and comment the avove import 
+#
+# http://dump.domindthegap.co.uk/backup/output.py
+#import output
+
+def dictSort(d):
+    """ returns a dictionary sorted by keys """
+    our_list = d.items()
+    our_list.sort()
+    k = []
+    for item in our_list:
+        k.append((item[0], item[1]))
+    return k
+
+class bJanitor:
+	directory = ''
+	files = {}
+	excludes = ['current', 'lost+found', 'logs', 'special', 'stage4']
+
+	def __init__(self, dir):
+		self.directory = dir
+		self._scan()
+	
+	def _scan(self):
+		for year in os.listdir(self.directory):
+			try:
+				self.excludes.index(year)
+			except:
+				if year[0] != '.':
+					for day in os.listdir(self.directory + '/' + year):
+						name = year + '-' + day
+						self.files[name] = []
+						for time in os.listdir(self.directory + '/' + year + '/' + day):
+							self.files[name].append(time)
+		self.files = dictSort(self.files)
+	
+	def _getIdOfBackup(self, date, time):
+		i = 0
+		for fdate in self.files:
+			fdate[1].sort()
+			for backup in fdate[1]:
+				i += 1
+				if date == fdate[0] and backup == time:
+					return i
+		return False
+	
+	def _output(self, list, numbers=False, size = False):
+		olist = []
+		for b in list:
+			if b[1] != []:
+				olist.append(b)
+		if olist != []:
+			if numbers:
+				print output.bold('  Num'),
+			print output.bold('    Date         Time'),
+			if size:
+				print output.bold('         Size'),
+			print ''
+		gnumbers = (olist == self.files and numbers)
+		if size:
+			sizes = {}
+			sizestr = commands.getoutput('du -shc ' + self.directory + '/2*/*/*')
+			for line in sizestr.split('\n')[:-1]:
+				s = line.split('\t')
+				sizes[s[1][12:]] = s[0]
+		i = 0
+		num = '  '
+		for date in olist:
+			if date[1] != []:
+				date[1].sort()
+				for timestr in date[1]:
+					i += 1
+					dot = output.green('*')
+					if timestr[9:] != '':
+						timestr = timestr[0:-11]
+						if os.path.exists(self.directory + '/.backup_in_progress'):
+							dot = output.yellow('*')
+						else:
+							dot = output.red('*')
+					timesta = strptime(timestr, '%H_%M_%S')
+					si = ''
+					if size:
+						try:
+							si = '   ' + sizes[date[0][:-3] + '/' + date[0][-2:] + '/' + timestr]
+						except:
+							pass
+					if not gnumbers and numbers:
+						num = output.bold('  [%d]\t' % self._getIdOfBackup(date[0], timestr))
+					if numbers and gnumbers:
+						num = output.bold('  [%d]\t' % i)
+					print num + dot + ' ' + date[0] + '   ' + strftime("%I:%M:%S %p",timesta) + si
+					
+	def _deleteDir(self, dir):
+		print '  ' + dir
+		os.system('rm -rf "' + dir + '"')
+		
+	def _deleteFile(self, file):
+		print '  ' + file
+		os.system('rm -f "' + file + '"')
+	
+	def _merge(self, molist, olist, mo):
+		if mo == strftime('%Y-%m', localtime()):
+			# current month
+			for fdate in molist:
+				if fdate[0] != strftime('%Y-%m-%d', localtime()) and fdate[0] != str(datetime.date.today() - datetime.timedelta(days=1)):
+					# not today
+					e, f = [], []
+					for fd in fdate[1]:
+						if fd[9:] == '':
+							f.append(fd)
+					for fd in fdate[1]:
+						if fd != f[-1]: # not this one
+							e.append(fd)
+					fdate = (fdate[0], e)
+				olist.append(fdate)
+		else:
+			# other month
+			last = ('', '')
+			
+			for fdate in molist:
+				for fd in fdate[1]:
+					if fd[9:] == '':
+						last = (fdate[0], fd)
+			for fdate in molist:
+				if fdate[0] == last[0]:
+					k = []
+					for fd in fdate[1]:
+						if fd != last[1]:
+							k.append(fd)
+					fdate = (fdate[0], k)
+				olist.append(fdate)
+		return olist
+	
+	def fixer(self, do):
+		print output.darkgreen('\nThese are the problems found Backup Janitor:\n')
+		# TODO implement function here :)
+
+	def clean(self, do, log, size, numbers):
+		if os.path.exists(self.directory + '/.backup_in_progress'):
+			print output.red('Backup Janitor detected that a backup is currently in progress. Cleaning is thus not allowed.')
+		else:
+			olist, molist, logs = [], [], []
+			ldate = ()
+			mo = ''
+			print output.darkgreen('\nThese are the backups Backup Janitor suggests to remove:\n')
+			for date in self.files:
+				if mo != date[0][0:-3]:
+					# new month
+					olist = self._merge(molist, olist, mo)
+					molist = []
+					mo = date[0][0:-3]
+				if date[1] != []:
+					date[1].sort()
+					dates = []
+					for timestr in date[1]:
+						# either it's not today or it's not incomplete
+						# (don't ask what this means. seriosuly, don't.)
+						if (date[0] != strftime('%Y-%m-%d', localtime()) and date[0] != str(datetime.date.today() - datetime.timedelta(days=1))) or timestr[9:] != '':
+							dates.append(timestr)
+					if dates != []:
+						molist.append((date[0], dates))
+				ldate = date
+			olist = self._merge(molist, olist, mo)
+			self._output(olist, size=size, numbers=numbers) # output list
+			
+			if log:
+				for log in os.listdir(self.directory + '/logs/'):
+					path = self.directory + '/' + log[0:7] + '/' + log[8:10] + '/' + log[13:-4]
+					if not os.path.exists(path):
+						logs.append(self.directory + '/logs/' + log)
+				
+				# remove log if you want to remove backup
+				for date in olist:
+					for backup in date[1]:
+						log = self.directory + '/logs/' + date[0] + '_-_' + backup + '.log'
+						if os.path.exists(log):
+							logs.append(log)
+				
+				logs.sort()
+				print output.darkgreen('\nThese are the log files Backup Janitor suggests to remove:\n')
+				if logs != []:
+					for log in logs:
+						print '  ' + log
+					print ''
+			if do: # do it
+				print output.bold('\nRemoving Backups...')
+				for date in olist:
+					pre = self.directory + '/' + date[0][:-3] + '/' + date[0][-2:]
+					
+					b = False
+					for fdate in self.files:
+						if fdate == date:
+							b = True
+					if b:
+						self._deleteDir(pre)
+					else:
+						for time in date[1]:
+							self._deleteDir(pre + '/' + time)
+				print ''
+				print output.bold('Removing Log Files...')
+				for log in logs:
+					self._deleteFile(log)
+				print ''
+	
+	def detail(self, num):
+		logname = ''
+		i = 0
+		for date in self.files:
+			date[1].sort()
+			for backup in date[1]:
+				i += 1
+				if i == num:
+					logname = self.directory + '/logs/' + date[0] + '_-_' + backup[0:8] + '.log'
+		if logname != '' and os.path.exists(logname):
+			os.system('cat "' + logname + '" | less')
+		else:
+			print 'Logfile not found'
+	
+	def list(self, size, numbers):
+		print output.darkgreen('\nThese are the backups Backup Janitor has found:\n')
+		self._output(self.files, size=size, numbers=numbers)
+
+def main():
+	usage = "usage: %prog [options]"
+	parser = OptionParser(usage="usage: %prog [options]", version="%prog 0.3")
+	
+	gclean = OptionGroup(parser, output.bold('Clean Mode'), "Clean mode keeps all backups of the last two days, and for all other days in the current month it keeps the last backup of the day. For all other months it keeps the last daily backup of that month.")
+	parser.add_option_group(gclean)
+	gclean.add_option("-c", "--clean", action="store_true", dest="clean", help="Backup Cleaning (suggest what to remove)")
+	gclean.add_option("-d", "--do", action="store_true", dest="do", help="Executes for real (i.e. really delete files)")
+	gclean.add_option("-L", "--log", action="store_true", dest="log", help="Also clean up log files")
+	
+	glisting = OptionGroup(parser, output.bold('Listing'), "In the listing green dots represent successful backups, while red or yellow dots represent (yet) incomplete backups.")
+	parser.add_option_group(glisting)
+	glisting.add_option("-l", "--list", action="store_true", dest="list", help="List your backups")
+	glisting.add_option("-D", "--detail", dest="detail", type="int", default=-1, help="Show the logfile of backup N", metavar="N")
+	glisting.add_option("-n", "--numbers", action="store_true", dest="numbers", help="Print numbers (needed for -D)")
+	
+	gfixer = OptionGroup(parser, output.bold('Fixing'), "In fixing mode bjanitor will try to find common problems (such as left over log files which should be deleted). Use the previously mentioned -d/--do option in conjuntion with -f to actually fix something.")
+	parser.add_option_group(gfixer)
+	gfixer.add_option("-f", "--fixing", action="store_true", dest="fixer", help="Run fixer mode")
+
+	gsize = OptionGroup(parser, output.bold('Sizes'), "Sizes are gathered with the \"du -shc\" command. The first backup will therefore be shown as rather big, while the other sizes just show what the specific backup has in additional data. Using the -s command with the -c command will therefore be rather useless, as it will not necessarily represent the amount of space that will be freed up.")
+	gsize.add_option("-s", "--size", action="store_true", dest="size", help="show sizes of backup files (slow!)")
+	parser.add_option_group(gsize)
+	
+	(options, args) = parser.parse_args()
+	
+	if len(args) != 0:
+		parser.error("what kind of parameters are you trying to give me here, buddy?")
+	
+	mutual = 0
+	if options.list:
+		mutual += 1
+	if options.clean:
+		mutual += 1
+	if options.list:
+		mutual += 1
+	if options.detail != -1:
+		mutual += 1
+	if options.fixer:
+		mutual += 1
+
+	if (mutual > 1):
+		parser.error("some of the selected options are mutually exclusive")
+	
+	if options.do and not options.clean and not options.fixer:
+		parser.error("option --do/-d makes no sense in this context")
+	
+	if options.log and not options.clean:
+		parser.error("option --showlog/-L makes no sense in this context")
+	
+	if options.numbers and not (options.clean or options.list):
+		parser.error("option --numbers/-n makes no sense in this context")
+		
+	if options.size and not (options.clean or options.list):
+		parser.error("option --size/-s makes no sense in this context")
+	
+	# don't add a ending / on the path. don't it'll partly break my script
+	jan = bJanitor('/mnt/backup')
+	if options.list:
+		jan.list(size=options.size, numbers=options.numbers)
+	elif options.clean:
+		jan.clean(options.do, log=options.log, size=options.size, numbers=options.numbers)
+	elif options.detail != -1:
+		jan.detail(options.detail)
+	elif options.fixer:
+		jan.fixer(options.do)
+	else:
+		parser.print_help()
+
+if __name__ == "__main__":
+	main()
+

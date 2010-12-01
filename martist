@@ -1,0 +1,15 @@
+#!/bin/bash
+length=$(($#-1))
+allbutlast=${@:1:$length}
+last=${@:$length+1:$length + 2}
+
+if [[ "$last" = "!" ]] ; then
+        mpc clear >/dev/null
+        mpc random on >/dev/null
+        mpc search artist "$allbutlast" | mpc add >/dev/null
+        mpc search artist "$allbutlast" | awk -F/ '{print $1 " - "$2}' | uniq | sort
+        echo ""
+        mpc play
+else
+        mpc search artist "$*" | awk -F/ '{print $1 " - "$2}' | uniq | sort
+fi

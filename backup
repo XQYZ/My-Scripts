@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# you can configure the following items to your own paths
+HOME=/home/patrick/
+MOUNT=/mnt/backup
+EXCLUDES=${HOME}/.rsync/excludes
+SPECIAL=${HOME}/.rsync/special
+# don't adjust anything after this line
+
+# do not change those timestamps if you want to use bJanitor later on
+# i'm serious it won't work.
+datelog=`date "+%Y-%m-%d_-_%H_%M_%S"`
+date=`date "+%Y-%m/%d/%H_%M_%S"`
+LOGDIR=${MOUNT}/logs
+LOGFILE=${LOGDIR}/${datelog}.log
+
+if [ ! -d ${MOUNT} ] ; then
+	echo "Backup Destination (${MOUNT}) does not exist!!"
+	exit
+fi
+
+if [ ! -d ${MOUNT}/special ] ; then
+	echo "Special Directory does not exist: Creating" | tee -a ${LOGFILE}
+	mkdir -p ${MOUNT}/special
+fi
+
+if [ ! -f ${MOUNT}/.is_backup ] ; then
+	echo "The mountpoint does not seem to be a valid backup destiantion"
+	echo "Please create a .is_backup file in the directory if it is"
+else
+	if [ -f ${MOUNT}/.backup_in_progress ]
+	then
+		echo "There is already a backup in progress"
+	else
+		touch ${MOUNT}/.backup_in_progress
+		mkdir ${LOGDIR} 2>/dev/null
+		mkdir -p ${MOUNT}/${date}_incomplete
+		rsync -azv \
+			--delete \
+			--delete-excluded \
+			--exclude-from=${EXCLUDES} \
+			--exclude-from=${SPECIAL} \
+			--link-dest=${MOUNT}/current \
+			${HOME} ${MOUNT}/${date}_incomplete | tee -a ${LOGFILE} \
+			&& mv ${MOUNT}/${date}_incomplete ${MOUNT}/$date \
+			&& rm -f ${MOUNT}/current \
+			&& ln -s ${MOUNT}/$date ${MOUNT}/current
+
+		# special backups - ie backups which don't change often and you don't want to have incremental
+		cat ${SPECIAL} | while read line;
+		do
+			if [ ! -d "${MOUNT}/special/${line}" ] ; then
+				echo "${line} Special Directory does not exist: Creating" | tee -a ${LOGFILE}
+				mkdir -p "${MOUNT}/special/${line}"
+			fi
+			rsync -azv --delete "${HOME}/${line}" "${MOUNT}/special/${line}" | tee -a ${LOGFILE}
+		done
+		rm ${MOUNT}/.backup_in_progress
+	fi
+fi
+

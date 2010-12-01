@@ -1,0 +1,11 @@
+#!/bin/bash
+HOST="192.168.178.20"
+ping -c1 ${HOST} -q 2>&1 >/dev/null
+RET=$?
+if [ ${RET} -eq 0 ]; then
+	#we were successful. disable downloads
+	/usr/bin/deluge-console "config --set max_active_limit 0" 2>&1 >/dev/null
+else
+	#we weren’t successful. download away
+	/usr/bin/deluge-console "config --set max_active_limit 100" 2>&1 >/dev/null
+fi

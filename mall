@@ -1,0 +1,7 @@
+#!/bin/bash
+mpc random on >/dev/zero
+mpc clear >/dev/zero
+mpc search any "" | mpc add >/dev/zero
+if [[ "$1" = "!" ]] ; then
+	mpc play
+fi
