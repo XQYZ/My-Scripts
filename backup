@@ -32,6 +32,8 @@ else
 	then
 		echo "There is already a backup in progress"
 	else
+		# uncomment if you don't use awesome
+		#echo 'naughty.notify({title = "Backup", text = "Running backup ...", timeout = 10})' | awesome-client -
 		touch ${MOUNT}/.backup_in_progress
 		mkdir ${LOGDIR} 2>/dev/null
 		mkdir -p ${MOUNT}/${date}_incomplete
@@ -56,6 +58,8 @@ else
 			rsync -azv --delete "${HOME}/${line}" "${MOUNT}/special/${line}" | tee -a ${LOGFILE}
 		done
 		rm ${MOUNT}/.backup_in_progress
+		# uncomment if you're not running awesome
+		#echo 'naughty.notify({title = "Backup", text = "Backup finished!", timeout = 10})' | awesome-client -
 	fi
 fi
 
