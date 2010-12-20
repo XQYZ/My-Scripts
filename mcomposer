@@ -6,10 +6,9 @@ last=${@:$length+1:$length + 2}
 if [[ "$last" = "!" ]] ; then
         mpc clear >/dev/null
         mpc random on >/dev/null
-        mpc search composer "$allbutlast" | mpc add >/dev/null
-        mpc search composer "$allbutlast" | awk -F/ '{print $1 " - "$2}' | uniq | sort
+        mpc search composer "$allbutlast" | mpc add
         echo ""
         mpc play
 else
-        mpc search composer "$*" | awk -F/ '{print $1 " - "$2}' | uniq | sort
+        mpc search composer "$*"
 fi
