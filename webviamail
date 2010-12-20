@@ -1,9 +1,0 @@
-#!/bin/bash
-ADDR=patrick@veritas
-wget "$1" -O /tmp/web.html 2>/dev/null
-echo "To: ${ADDR}" > /tmp/mail
-echo "Subject: WebRequest - $1" >> /tmp/mail
-echo "Content-Type: text/html; charset=\"us-ascii\"" >> /tmp/mail
-cat /tmp/web.html >> /tmp/mail
-sendmail patrick@veritas < /tmp/mail
-rm /tmp/web.html /tmp/mail
