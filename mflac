@@ -1,0 +1,4 @@
+#!/bin/bash
+mpc clear
+mpc search any "" | grep -i ".flac$" | mpc add
+mpc random off
